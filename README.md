@@ -1,0 +1,2 @@
+# wzi
+Wizzle Infinity token
