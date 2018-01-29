@@ -1,7 +1,5 @@
 pragma solidity ^0.4.18;
 
-import 'Ownable.sol';
-
 library SafeMath {
   function mul(uint256 a, uint256 b) internal constant returns (uint256) {
     uint256 c = a * b;
@@ -26,11 +24,34 @@ library SafeMath {
   }
 }
 
+contract Ownable {
+  
+  address public owner;
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+  function Ownable() public {
+    owner = msg.sender;
+  }
+
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  function transferOwnership(address newOwner) onlyOwner public {
+    require(newOwner != address(0));
+    OwnershipTransferred(owner, newOwner);
+    owner = newOwner;
+    }
+
+}
+
 contract Token {
-  //uint public totalSupply;
-  //function balanceOf(address who) public constant returns (uint);
-  //function transfer(address to, uint value) public returns (bool);
   function mint(address _to, uint _amount) public returns (bool);
+}
+
+contract Whitelist {
+  function isWhitelisted(address addr) public constant returns (bool);
 }
 
 contract Crowdsale is Ownable {
@@ -38,15 +59,26 @@ contract Crowdsale is Ownable {
   
   // token reference
   Token public token;
-  // start and end timestamps where investments are allowed (both inclusive)
-  uint256 public startTime;
-  uint256 public endTime;
+  // whitelist reference
+  Whitelist public whitelist;
+  // presale time range (inclusive)
+  uint256 public startTimePre;
+  uint256 public endTimePre;
+  // ICO time range (inclusive)
+  uint256 public startTimeIco;
+  uint256 public endTimeIco;
   // address where funds are collected
   address public wallet;
   // how many token units a buyer gets per wei
-  uint256 public rate;
+  uint32 public rate;
+  // amount of tokens sold in presale
+  uint256 public tokensSoldPre;
+  // amount of tokens sold in ICO
+  uint256 public tokensSoldIco;
   // amount of raised money in wei
   uint256 public weiRaised;
+  // number of contributors
+  uint256 public contributors;
   
   // purchaser - who paid for the tokens
   // beneficiary - who got the tokens
@@ -54,21 +86,27 @@ contract Crowdsale is Ownable {
   // amount - amount of tokens purchased
   event TokenPurchase(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount);
 
-  function Crowdsale(uint256 _startTime, uint256 _endTime, uint256 _rate, address _wallet, address _tokenAddress) {
-    require(_startTime >= now);
-    require(_endTime >= _startTime);
+  function Crowdsale(uint256 _startTimePre, uint256 _endTimePre, uint256 _startTimeIco, uint256 _endTimeIco, uint32 _rate, address _wallet, address _tokenAddress) {
+    // startTimePre < endTimePre < startTimeIco < endTimeIco
+    require(_startTimePre >= now);
+    require(_endTimePre >= _startTimePre);
+    require(_startTimeIco >= _endTimePre);
+    require(_endTimeIco >= _startTimeIco);
     require(_rate > 0);
     require(_wallet != address(0));
-    startTime = _startTime;
-    endTime = _endTime;
+    require(_tokenAddress != address(0));
+    startTimePre = _startTimePre;
+    endTimePre = _endTimePre;
+    startTimeIco = _startTimeIco;
+    endTimeIco = _endTimeIco;
     rate = _rate;
     wallet = _wallet;
     token = Token(_tokenAddress);
   }
 
-  function setRate(uint256 _rate) public onlyOwner {
-      require(_rate > 0);
-      rate = _rate;
+  function setRate(uint32 _rate) public onlyOwner {
+    require(_rate > 0);
+    rate = _rate;
   }
 
   function () payable {
@@ -77,53 +115,84 @@ contract Crowdsale is Ownable {
 
   function buyTokens(address beneficiary) public payable {
     require(beneficiary != address(0));
-    require(validPurchase());
+    //here whitelisting check
+    require(whitelist.isWhitelisted(beneficiary));
     uint256 weiAmount = msg.value;
-    uint256 tokenAmount = weiAmount.mul(rate);
+    require(weiAmount > 0);
+    uint256 tokenAmount = 0;
+    if (isPresale()) {
+      require(weiAmount >= 1 ether);
+      tokenAmount = getTokenAmount(weiAmount, 50);
+      uint256 newTokensSoldPre = tokensSoldPre.add(tokenAmount);
+      require(newTokensSoldPre <= 1500 * 10**6 * 10**18);
+      tokensSoldPre = newTokensSoldPre;
+    } else if (isIco()) {
+      uint8 discountPercentage = getIcoDiscountPercentage();
+      tokenAmount = getTokenAmount(weiAmount, discountPercentage);
+      tokensSoldIco = tokensSoldIco.add(tokenAmount);
+    } else {
+      // stop execution and return remaining gas
+      require(false);
+    }
+    executeTransaction(beneficiary, weiAmount, tokenAmount);
+  }
+
+  function getIcoDiscountPercentage() internal constant returns (uint8) {
+    uint256 discountLevel1 = 500 * 10**6 * 10**18;
+    uint256 discountLevel2 = 500 * 10**6 * 10**18;
+    if (tokensSoldIco <= discountLevel1) {
+      return 40;
+    } else if (tokensSoldIco <= discountLevel1 + discountLevel2) {
+      return 30;
+    } else { 
+      return 25;
+    }
+  }
+
+  function getTokenAmount(uint256 weiAmount, uint8 discountPercentage) internal constant returns (uint256) {
+    require(discountPercentage >= 0 && discountPercentage <= 100);
+    uint256 baseTokenAmount = weiAmount.mul(rate);
+    uint256 tokenAmount = baseTokenAmount.mul(10000).div(100 - discountPercentage);
+    return tokenAmount;
+  }
+
+  function executeTransaction(address beneficiary, uint256 weiAmount, uint256 tokenAmount) internal {
     weiRaised = weiRaised.add(weiAmount);
     token.mint(beneficiary, tokenAmount);
     TokenPurchase(msg.sender, beneficiary, weiAmount, tokenAmount);
+	  contributors = contributors.add(1);
     wallet.transfer(weiAmount);
   }
 
-  // @return true if the transaction can buy tokens
-  function validPurchase() internal constant returns (bool) {
-    bool withinPeriod = now >= startTime && now <= endTime;
-    bool nonZeroPurchase = msg.value != 0;
-    return withinPeriod && nonZeroPurchase;
+  function isPresale() public constant returns (bool) {
+    return now >= startTimePre && now <= endTimePre;
   }
-  // @return true if crowdsale event has ended
-  function hasEnded() public constant returns (bool) {
-    return now > endTime;
+
+  function isIco() public constant returns (bool) {
+    return now >= startTimeIco && now <= endTimeIco;
   }
+
+  // true if presale event has ended
+  function hasPresaleEnded() public constant returns (bool) {
+    return now > endTimePre;
+  }
+
+  // true if ICO event has ended
+  function hasIcoEnded() public constant returns (bool) {
+    return now > endTimeIco;
+  }
+
+  // tokens sold in both presale and ICO
+  function cummulativeTokensSold() public constant returns (uint256) {
+    return tokensSoldPre + tokensSoldIco;
+  }
+
 }
 
-contract CappedCrowdsale is Crowdsale {
-  using SafeMath for uint256;
-  uint256 public cap;
-  function CappedCrowdsale(uint256 _cap) {
-    require(_cap > 0);
-    cap = _cap;
-  }
-  // overriding Crowdsale#validPurchase to add extra cap logic
-  // @return true if investors can buy at the moment
-  function validPurchase() internal constant returns (bool) {
-    bool withinCap = weiRaised.add(msg.value) <= cap;
-    return super.validPurchase() && withinCap;
-  }
-  // overriding Crowdsale#hasEnded to add cap logic
-  // @return true if crowdsale event has ended
-  function hasEnded() public constant returns (bool) {
-    bool capReached = weiRaised >= cap;
-    return super.hasEnded() || capReached;
-  }
-}
-
-contract WizzleInfinityTokenCrowdsale is CappedCrowdsale {
-  function WizzleInfinityTokenCrowdsale(uint256 _startTime, uint256 _endTime, uint256 _rate,  uint256 _cap, address _wallet, address _tokenAddress)
-    CappedCrowdsale(_cap)
-    Crowdsale(_startTime, _endTime, _rate, _wallet, _tokenAddress) {
-
+contract WizzleInfinityTokenCrowdsale is Crowdsale {
+  function WizzleInfinityTokenCrowdsale(uint256 _startTime, uint256 _endTime, uint256 _rate, address _wallet, address _tokenAddress)
+    Crowdsale(_startTime, _endTime, _rate, _wallet, _tokenAddress) 
+    {
     }
 
 }

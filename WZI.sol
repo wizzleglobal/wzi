@@ -1,7 +1,5 @@
 pragma solidity ^0.4.18;
 
-import 'Ownable.sol';
-
 library SafeMath {
   function mul(uint a, uint b) internal constant returns (uint) {
     uint c = a * b;
@@ -21,6 +19,28 @@ library SafeMath {
     assert(c >= a);
     return c;
   }
+}
+
+contract Ownable {
+
+  address public owner;
+
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+  
+  function Ownable() public {
+    owner = msg.sender;
+  }
+
+  modifier onlyOwner() {
+    require(msg.sender == owner);
+    _;
+  }
+
+  function transferOwnership(address newOwner) onlyOwner public {
+    require(newOwner != address(0));
+    OwnershipTransferred(owner, newOwner);
+    owner = newOwner;
+    }
 }
 
 contract ERC20 {
@@ -46,6 +66,8 @@ contract StandardToken is ERC20, Ownable {
   event Unlock(address _from, uint _amount);
   event Pause();
   event Unpause();
+  
+  uint256 public mintCap;
 
   struct Locked {
       uint lockedAmount;
@@ -89,6 +111,7 @@ contract StandardToken is ERC20, Ownable {
   // mint new tokens and update totalSupply
   function _mint(address _to, uint _amount) internal returns (bool) {
       require(_to != address(0));
+	  require(totalSupply.add(_amount) <= mintCap);
       totalSupply = totalSupply.add(_amount);
       balances[_to] = balances[_to].add(_amount);
       return true;
@@ -99,7 +122,9 @@ contract StandardToken is ERC20, Ownable {
   // will the tokens be burned, ie how are we going to call this function?
   function burn(address _from, uint _amount) public onlyOwner returns (bool) {
       require(_from != address(0));
-      balances[_from] = balances[_from].sub(_amount);
+	  uint256 newBalance = balances[_from].sub(_amount);
+	  require(newBalance >= 0);
+      balances[_from] = newBalance;
       totalSupply = totalSupply.sub(_amount);
       Burn(_from, _amount);
       return true;
@@ -244,8 +269,9 @@ contract StandardToken is ERC20, Ownable {
 contract WizzleInfinityToken is StandardToken {
     string public constant name = "Wizzle Infinity Token";
     string public constant symbol = "WZI";
-    uint8 public constant decimals = 0;
+    uint8 public constant decimals = 18;
     function WizzleInfinityToken() public { 
-        totalSupply = 0;
+      totalSupply = 0;
+		  mintCap = SafeMath.mul(6, 10**9 * 10**decimals);
     }
 }
