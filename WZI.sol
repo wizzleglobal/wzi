@@ -21,14 +21,25 @@ library SafeMath {
   }
 }
 
-contract Ownable {
-
+contract Roles {
+  // address of owner - all priviledges
   address public owner;
 
-  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+  // global operator address
+  address public globalOperator;
+
+  // crowdsale address
+  address public crowdsale;
+
+  //events
+  event OwnerChanged(address indexed _previousOwner, address indexed _newOwner);
+  event GlobalOperatorChanged(address indexed _previousGlobalOperator, address indexed _newGlobalOperator);
+  event CrowdsaleTransferred(address indexed _previousCrowdsale, address indexed _newCrowdsale);
   
-  function Ownable() public {
+  function Roles() public {
     owner = msg.sender;
+    globalOperator = address(0); // initially
+    crowdsale = address(0); //  initially
   }
 
   modifier onlyOwner() {
@@ -36,11 +47,34 @@ contract Ownable {
     _;
   }
 
-  function transferOwnership(address newOwner) onlyOwner public {
+  modifier onlyGlobalOperator() {
+    require(msg.sender == globalOperator);
+    _;
+  }
+
+  modifier anyRole() {
+    require(msg.sender == owner || msg.sender == globalOperator || msg.sender == crowdsale);
+    _;
+  }
+
+  function changeOwner(address newOwner) onlyOwner public {
     require(newOwner != address(0));
-    OwnershipTransferred(owner, newOwner);
+    OwnerChanged(owner, newOwner);
     owner = newOwner;
-    }
+  }
+
+  function changeGlobalOperator(address newGlobalOperator) onlyOwner public {
+    require(newGlobalOperator != address(0));
+    GlobalOperatorChanged(globalOperator, newGlobalOperator);
+    globalOperator = newGlobalOperator;
+  }
+
+  function changeCrowdsale(address newCrowdsale) onlyOwner public {
+    require(newCrowdsale != address(0));
+    GlobalOperatorChanged(crowdsale, newCrowdsale);
+    crowdsale = newCrowdsale;
+  }
+
 }
 
 contract ERC20 {
@@ -55,39 +89,29 @@ contract ERC20 {
   event Approval(address indexed owner, address indexed spender, uint value);
 }
 
-contract StandardToken is ERC20, Ownable {
+contract ExtendedToken is ERC20, Roles {
   using SafeMath for uint;
 
-  // events
-  event Mint(address _to, uint _amount);
-  event Burn(address _from, uint _amount);
-  event Lock(address _from, uint _amount);
-  event LockClaimed(address _from, uint _amount);
-  event Unlock(address _from, uint _amount);
-  event Pause();
-  event Unpause();
-  
-  uint256 public mintCap;
+  // max amount of minted tokens (6 billion tokens)
+  uint256 public constant mintCap = 6 * 10**27;
 
+  // minimum amount to lock (100 000 tokens)
+  uint public constant minimumLockAmount = 100000 * 10**18;
+
+  // structure that describes locking of tokens
   struct Locked {
-      uint lockedAmount;
+      uint lockedAmount; // amount of tokens locked
       uint lastUpdated; // time when tokens were last locked
-      uint lastClaimed; // time when bonus was last claimed 
+      uint lastClaimed; // time when bonus was last claimed
   }
   
   // used to pause the transfer
   bool public transferPaused = false;
-  // minimum amount to lock
-  uint public constant MIN_LOCK_AMOUNT = 100000;   
 
+  // mappings for balances, locked amounts and allowance
   mapping (address => uint) balances;
   mapping (address => Locked) locked;
   mapping (address => mapping (address => uint)) internal allowed;
-  
-  // don't accept ETH
-  function () public payable {
-    revert();
-  }
 
   // pause transfer
   function pause() public onlyOwner {
@@ -101,39 +125,41 @@ contract StandardToken is ERC20, Ownable {
       Unpause();
   }
 
-  
-  function mint(address _to, uint _amount) public onlyOwner returns (bool) {
+  // owner, global operator and crowdsale can mint new tokens and update totalSupply
+  function mint(address _to, uint _amount) public anyRole returns (bool) {
       _mint(_to, _amount);
       Mint(_to, _amount);
       return true;
   }
   
-  // mint new tokens and update totalSupply
+  // internal mint with checks
   function _mint(address _to, uint _amount) internal returns (bool) {
       require(_to != address(0));
-	  require(totalSupply.add(_amount) <= mintCap);
+	    require(totalSupply.add(_amount) <= mintCap);
       totalSupply = totalSupply.add(_amount);
       balances[_to] = balances[_to].add(_amount);
       return true;
   }
 
-  // burn the tokens from address 
-  // TODO: this is just a simple implementation; still need to see how 
-  // will the tokens be burned, ie how are we going to call this function?
-  function burn(address _from, uint _amount) public onlyOwner returns (bool) {
-      require(_from != address(0));
-	  uint256 newBalance = balances[_from].sub(_amount);
-	  require(newBalance >= 0);
-      balances[_from] = newBalance;
+  // only global operator can burn tokens from his own address
+  function burn(uint _amount) public onlyGlobalOperator returns (bool) {
+	    uint256 newBalance = balances[msg.sender].sub(_amount);
+	    require(newBalance >= 0);
+      balances[msg.sender] = newBalance;
       totalSupply = totalSupply.sub(_amount);
-      Burn(_from, _amount);
+      Burn(msg.sender, _amount);
       return true;
+  }
+
+  // check number of locked tokens
+  function lockedAmount(address _from) public constant returns (uint256) {
+      return locked[_from].lockedAmount;
   }
 
   // token lock
   function lock(uint _amount) public returns (bool) {
       require(msg.sender != address(0));
-      require(_amount >= MIN_LOCK_AMOUNT);
+      require(_amount >= minimumLockAmount);
       uint newLockedAmount = locked[msg.sender].lockedAmount.add(_amount);
       require(balances[msg.sender] >= newLockedAmount);
       _checkLock(msg.sender);
@@ -141,10 +167,6 @@ contract StandardToken is ERC20, Ownable {
       locked[msg.sender].lastUpdated = now;
       Lock(msg.sender, _amount);
       return true;
-  }
-
-  function max(uint a, uint b) internal pure returns(uint) {
-    return (a > b) ? a : b;
   }
 
   // TODO: Maybe implement this in claimBonus() function fully
@@ -165,7 +187,7 @@ contract StandardToken is ERC20, Ownable {
       return false;
     */
 
-    if (locked[_from].lockedAmount >= MIN_LOCK_AMOUNT) { // or "> 0" ???
+    if (locked[_from].lockedAmount >= minimumLockAmount) { // or "> 0" ???
       uint referentTime = max(locked[_from].lastUpdated, locked[_from].lastClaimed);
       uint timeDifference = now.sub(referentTime);
       uint amountTemp = (locked[_from].lockedAmount.mul(timeDifference)).div(30 days); 
@@ -195,7 +217,7 @@ contract StandardToken is ERC20, Ownable {
       require(msg.sender != address(0));
       require(locked[msg.sender].lockedAmount >= _amount);
       uint newLockedAmount = locked[msg.sender].lockedAmount.sub(_amount);
-      if (newLockedAmount < MIN_LOCK_AMOUNT) {
+      if (newLockedAmount < minimumLockAmount) {
         balances[msg.sender] = balances[msg.sender].add(locked[msg.sender].lockedAmount);
         Unlock(msg.sender, locked[msg.sender].lockedAmount);
         locked[msg.sender].lockedAmount = 0;
@@ -259,19 +281,48 @@ contract StandardToken is ERC20, Ownable {
     return true;
   }
 
-  // owner can transfer out any accidentally sent ERC20 tokens  
-  function transferAnyERC20Token(address tokenAddress, uint _amount) public onlyOwner returns (bool success) {
-      return ERC20(tokenAddress).transfer(owner, _amount);
+  // utility
+  function max(uint a, uint b) pure internal returns(uint) {
+    return (a > b) ? a : b;
   }
+
+  // don't accept ether
+  function () public payable {
+    revert();
+  }
+
+  // claim mistakenly sent tokens to this contract including ether
+  function claimTokens(address _token) public onlyOwner {
+    if (_token == address(0)) {
+         owner.transfer(this.balance);
+         return;
+    }
+
+    ERC20 token = ERC20(_token);
+    uint balance = token.balanceOf(this);
+    token.transfer(owner, balance);
+    ClaimedTokens(_token, owner, balance);
+  }
+
+  // events
+  event Mint(address _to, uint _amount);
+  event Burn(address _from, uint _amount);
+  event Lock(address _from, uint _amount);
+  event LockClaimed(address _from, uint _amount);
+  event Unlock(address _from, uint _amount);
+  event ClaimedTokens(address indexed _token, address indexed _owner, uint _amount);
+  event Pause();
+  event Unpause();
 
 }
 
-contract WizzleInfinityToken is StandardToken {
+contract WizzleInfinityToken is ExtendedToken {
     string public constant name = "Wizzle Infinity Token";
     string public constant symbol = "WZI";
     uint8 public constant decimals = 18;
+
     function WizzleInfinityToken() public { 
       totalSupply = 0;
-		  mintCap = SafeMath.mul(6, 10**9 * 10**decimals);
     }
+
 }

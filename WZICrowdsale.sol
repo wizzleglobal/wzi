@@ -50,7 +50,7 @@ contract Token {
   function mint(address _to, uint _amount) public returns (bool);
 }
 
-contract Whitelist {
+contract WizzleGlobalHelper {
   function isWhitelisted(address addr) public constant returns (bool);
 }
 
@@ -59,8 +59,8 @@ contract Crowdsale is Ownable {
   
   // token reference
   Token public token;
-  // whitelist reference
-  Whitelist public whitelist;
+  // helper for whitelisting
+  WizzleGlobalHelper public helper;
   // presale time range (inclusive)
   uint256 public startTimePre;
   uint256 public endTimePre;
@@ -79,6 +79,10 @@ contract Crowdsale is Ownable {
   uint256 public weiRaised;
   // number of contributors
   uint256 public contributors;
+  //
+  uint256 public icoDiscountLevel1;
+  //
+  uint256 public icoDiscountLevel2;
   
   // purchaser - who paid for the tokens
   // beneficiary - who got the tokens
@@ -102,6 +106,8 @@ contract Crowdsale is Ownable {
     rate = _rate;
     wallet = _wallet;
     token = Token(_tokenAddress);
+    icoDiscountLevel1 = 500 * 10**24; // 500m tokens 
+    icoDiscountLevel2 = 500 * 10**24; // 500m tokens
   }
 
   function setRate(uint32 _rate) public onlyOwner {
@@ -116,7 +122,7 @@ contract Crowdsale is Ownable {
   function buyTokens(address beneficiary) public payable {
     require(beneficiary != address(0));
     //here whitelisting check
-    require(whitelist.isWhitelisted(beneficiary));
+    require(helper.isWhitelisted(beneficiary));
     uint256 weiAmount = msg.value;
     require(weiAmount > 0);
     uint256 tokenAmount = 0;
@@ -138,11 +144,11 @@ contract Crowdsale is Ownable {
   }
 
   function getIcoDiscountPercentage() internal constant returns (uint8) {
-    uint256 discountLevel1 = 500 * 10**6 * 10**18;
-    uint256 discountLevel2 = 500 * 10**6 * 10**18;
-    if (tokensSoldIco <= discountLevel1) {
+    //uint256 discountLevel1 = 500 * 10**6 * 10**18;
+    //uint256 discountLevel2 = 500 * 10**6 * 10**18;
+    if (tokensSoldIco <= icoDiscountLevel1) {
       return 40;
-    } else if (tokensSoldIco <= discountLevel1 + discountLevel2) {
+    } else if (tokensSoldIco <= icoDiscountLevel1 + icoDiscountLevel2) {
       return 30;
     } else { 
       return 25;
@@ -164,10 +170,15 @@ contract Crowdsale is Ownable {
     wallet.transfer(weiAmount);
   }
 
+  // change startTime, endTime for presale and ico
+  // change discount percentages
+
+  // true if presale is still active
   function isPresale() public constant returns (bool) {
     return now >= startTimePre && now <= endTimePre;
   }
 
+  // true if ICO is still active
   function isIco() public constant returns (bool) {
     return now >= startTimeIco && now <= endTimeIco;
   }
@@ -190,9 +201,16 @@ contract Crowdsale is Ownable {
 }
 
 contract WizzleInfinityTokenCrowdsale is Crowdsale {
-  function WizzleInfinityTokenCrowdsale(uint256 _startTime, uint256 _endTime, uint256 _rate, address _wallet, address _tokenAddress)
-    Crowdsale(_startTime, _endTime, _rate, _wallet, _tokenAddress) 
-    {
+
+  function WizzleInfinityTokenCrowdsale(uint256 _startTimePre, //
+                                        uint256 _endTimePre, //
+                                        uint256 _startTimeIco, //
+                                        uint256 _endTimeIco, //
+                                        uint32 _rate, //
+                                        address _wallet, // 
+                                        address _tokenAddress) //
+    Crowdsale(_startTimePre, _endTimePre, _startTimeIco, _endTimeIco, _rate, _wallet, _tokenAddress) {
+
     }
 
 }
