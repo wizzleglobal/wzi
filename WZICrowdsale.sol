@@ -128,6 +128,7 @@ contract Crowdsale is Ownable {
     rate = _rate;
   }
 
+  // fallback function for crowdsale contribution
   function () payable {
     buyTokens(msg.sender);
   }
@@ -156,14 +157,14 @@ contract Crowdsale is Ownable {
     executeTransaction(beneficiary, weiAmount, tokenAmount);
   }
 
-  //
+  // internal function for calculation of ICO discount percentage depending on levels
   function getIcoDiscountPercentage() internal constant returns (uint8) {
     if (tokensSoldIco <= icoDiscountLevel1) {
       return icoDiscountPercentageLevel1;
-    } else if (tokensSoldIco <= icoDiscountLevel1 + icoDiscountLevel2) {
+    } else if (tokensSoldIco <= icoDiscountLevel1.add(icoDiscountLevel2)) {
       return icoDiscountPercentageLevel2;
     } else { 
-      return icoDiscountPercentageLevel3;
+      return icoDiscountPercentageLevel3; //for everything else
     }
   }
 

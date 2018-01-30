@@ -41,12 +41,13 @@ contract ERC20 {
 }
 
 contract WizzleGlobalHelper is Mortal {
-    mapping (address => bool) whitelisted;
+    mapping (address => bool) public whitelisted;
     ERC20 public token;
 
     function WizzleGlobalHelper(address _token) {
         token = ERC20(_token);
     }
+
     function whitelist(address addr) public onlyOwner {
         require(!whitelisted[addr]);
         whitelisted[addr] = true;
@@ -68,14 +69,14 @@ contract WizzleGlobalHelper is Mortal {
         return whitelisted[addr];
     }   
 
-    function airdrop(address _tokenAddr, address[] dests, uint256[] values) returns (uint256) {
+    function airdrop(address[] dests, uint256[] values) returns (uint256) {
         uint256 i = 0;
         while (i < dests.length) {
            token.transfer(dests[i], values[i]);
            whitelisted[dests[i]] = true;
            i += 1;
         }
-        return(i); 
+        return (i); 
     }
 
 }
