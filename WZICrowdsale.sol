@@ -265,6 +265,7 @@ contract Crowdsale is Ownable {
 
 }
 
+/// @title WizzleInfinityTokenCrowdsale contract
 contract WizzleInfinityTokenCrowdsale is Crowdsale {
 
   function WizzleInfinityTokenCrowdsale(uint256 _startTimePre, //

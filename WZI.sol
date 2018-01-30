@@ -21,6 +21,7 @@ library SafeMath {
   }
 }
 
+/// @title Roles contract
 contract Roles {
   // address of owner - all priviledges
   address public owner;
@@ -30,11 +31,6 @@ contract Roles {
 
   // crowdsale address
   address public crowdsale;
-
-  //events
-  event OwnerChanged(address indexed _previousOwner, address indexed _newOwner);
-  event GlobalOperatorChanged(address indexed _previousGlobalOperator, address indexed _newGlobalOperator);
-  event CrowdsaleChanged(address indexed _previousCrowdsale, address indexed _newCrowdsale);
   
   function Roles() public {
     owner = msg.sender;
@@ -42,41 +38,53 @@ contract Roles {
     crowdsale = address(0); //  initially
   }
 
+  // modifier to enforce only owner function access
   modifier onlyOwner() {
     require(msg.sender == owner);
     _;
   }
 
+  // modifier to enforce only global operator function access
   modifier onlyGlobalOperator() {
     require(msg.sender == globalOperator);
     _;
   }
 
+  // modifier to enforce any of 3 specified roles to access function
   modifier anyRole() {
     require(msg.sender == owner || msg.sender == globalOperator || msg.sender == crowdsale);
     _;
   }
 
+  // owner can set new owner
   function changeOwner(address newOwner) onlyOwner public {
     require(newOwner != address(0));
     OwnerChanged(owner, newOwner);
     owner = newOwner;
   }
 
+  // owner can set new global operator
   function changeGlobalOperator(address newGlobalOperator) onlyOwner public {
     require(newGlobalOperator != address(0));
     GlobalOperatorChanged(globalOperator, newGlobalOperator);
     globalOperator = newGlobalOperator;
   }
 
+  // owner can set new crowdsale
   function changeCrowdsale(address newCrowdsale) onlyOwner public {
     require(newCrowdsale != address(0));
     CrowdsaleChanged(crowdsale, newCrowdsale);
     crowdsale = newCrowdsale;
   }
 
+   //events
+  event OwnerChanged(address indexed _previousOwner, address indexed _newOwner);
+  event GlobalOperatorChanged(address indexed _previousGlobalOperator, address indexed _newGlobalOperator);
+  event CrowdsaleChanged(address indexed _previousCrowdsale, address indexed _newCrowdsale);
+
 }
 
+/// @title ERC20 contract
 contract ERC20 {
   uint public totalSupply;
   function balanceOf(address who) public constant returns (uint);
@@ -89,6 +97,7 @@ contract ERC20 {
   event Approval(address indexed owner, address indexed spender, uint value);
 }
 
+/// @title ExtendedToken contract
 contract ExtendedToken is ERC20, Roles {
   using SafeMath for uint;
 
@@ -123,32 +132,6 @@ contract ExtendedToken is ERC20, Roles {
   function unpause() public onlyOwner {
       transferPaused = false;
       Unpause();
-  }
-
-  // owner, global operator and crowdsale can mint new tokens and update totalSupply
-  function mint(address _to, uint _amount) public anyRole returns (bool) {
-      _mint(_to, _amount);
-      Mint(_to, _amount);
-      return true;
-  }
-  
-  // internal mint with checks
-  function _mint(address _to, uint _amount) internal returns (bool) {
-      require(_to != address(0));
-	    require(totalSupply.add(_amount) <= mintCap);
-      totalSupply = totalSupply.add(_amount);
-      balances[_to] = balances[_to].add(_amount);
-      return true;
-  }
-
-  // only global operator can burn tokens from his own address
-  function burn(uint _amount) public onlyGlobalOperator returns (bool) {
-	    uint256 newBalance = balances[msg.sender].sub(_amount);
-	    require(newBalance >= 0);
-      balances[msg.sender] = newBalance;
-      totalSupply = totalSupply.sub(_amount);
-      Burn(msg.sender, _amount);
-      return true;
   }
 
   // check number of locked tokens
@@ -229,6 +212,39 @@ contract ExtendedToken is ERC20, Roles {
       return true;
   }
 
+   // owner, global operator and crowdsale can mint new tokens and update totalSupply
+  function mint(address _to, uint _amount) public anyRole returns (bool) {
+      _mint(_to, _amount);
+      Mint(_to, _amount);
+      return true;
+  }
+  
+  // internal mint with checks
+  function _mint(address _to, uint _amount) internal returns (bool) {
+      require(_to != address(0));
+	    require(totalSupply.add(_amount) <= mintCap);
+      totalSupply = totalSupply.add(_amount);
+      balances[_to] = balances[_to].add(_amount);
+      return true;
+  }
+
+  // only global operator can burn tokens from his own address
+  function burn(uint _amount) public onlyGlobalOperator returns (bool) {
+	    uint256 newBalance = balances[msg.sender].sub(_amount);
+	    require(newBalance >= 0);
+      balances[msg.sender] = newBalance;
+      totalSupply = totalSupply.sub(_amount);
+      Burn(msg.sender, _amount);
+      return true;
+  }
+
+  // ERC20 compliant transfer function
+  function transfer(address _to, uint _value) public returns (bool) {
+    _transfer(msg.sender, _to, _value);
+    return true;
+  }
+
+  // internal function for WZI token transfer
   function _transfer(address _from, address _to, uint _value) internal {
     require(!transferPaused);
     require(_to != address(0));
@@ -237,11 +253,6 @@ contract ExtendedToken is ERC20, Roles {
     balances[_from] = balances[_from].sub(_value);
     balances[_to] = balances[_to].add(_value);
     Transfer(_from, _to, _value);
-  }
-  
-  function transfer(address _to, uint _value) public returns (bool) {
-    _transfer(msg.sender, _to, _value);
-    return true;
   }
   
   function transferFrom(address _from, address _to, uint _value) public returns (bool) {
@@ -281,8 +292,8 @@ contract ExtendedToken is ERC20, Roles {
     return true;
   }
 
-  // utility
-  function max(uint a, uint b) pure internal returns(uint) {
+  // utility max function
+  function max(uint256 a, uint256 b) pure internal returns (uint256) {
     return (a > b) ? a : b;
   }
 
@@ -316,10 +327,12 @@ contract ExtendedToken is ERC20, Roles {
 
 }
 
+/// @title WizzleInfinityToken contract
 contract WizzleInfinityToken is ExtendedToken {
     string public constant name = "Wizzle Infinity Token";
     string public constant symbol = "WZI";
     uint8 public constant decimals = 18;
+    string public constant version = "v1";
 
     function WizzleInfinityToken() public { 
       totalSupply = 0;
