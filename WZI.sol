@@ -1,45 +1,55 @@
 pragma solidity ^0.4.18;
 
+/// @title SafeMath library
 library SafeMath {
+
   function mul(uint a, uint b) internal constant returns (uint) {
     uint c = a * b;
     assert(a == 0 || c / a == b);
     return c;
   }
+
   function div(uint a, uint b) internal constant returns (uint) {
     uint c = a / b;
     return c;
   }
+
   function sub(uint a, uint b) internal constant returns (uint) {
     assert(b <= a);
     return a - b;
   }
+
   function add(uint a, uint b) internal constant returns (uint) {
     uint c = a + b;
     assert(c >= a);
     return c;
   }
+
 }
 
+/// @title Roles contract
 contract Roles {
-  // address of owner - all priviledges
+  
+  /// Address of owner - All privileges
   address public owner;
 
-  // global operator address
+  /// Global operator address
   address public globalOperator;
 
-  // crowdsale address
+  /// Crowdsale address
   address public crowdsale;
 
-  //events
+  /// Events
   event OwnerChanged(address indexed _previousOwner, address indexed _newOwner);
   event GlobalOperatorChanged(address indexed _previousGlobalOperator, address indexed _newGlobalOperator);
   event CrowdsaleChanged(address indexed _previousCrowdsale, address indexed _newCrowdsale);
   
   function Roles() public {
     owner = msg.sender;
-    globalOperator = address(0); // initially
-    crowdsale = address(0); //  initially
+    /// Initially set to 0x0
+    globalOperator = address(0); 
+    /// Initially set to 0x0    
+    crowdsale = address(0); 
   }
 
   modifier onlyOwner() {
@@ -57,18 +67,24 @@ contract Roles {
     _;
   }
 
+  /// @dev Change the owner
+  /// @param newOwner Address of the new owner
   function changeOwner(address newOwner) onlyOwner public {
     require(newOwner != address(0));
     OwnerChanged(owner, newOwner);
     owner = newOwner;
   }
 
+  /// @dev Change global operator - initially set to 0
+  /// @param newGlobalOperator Address of the new global operator
   function changeGlobalOperator(address newGlobalOperator) onlyOwner public {
     require(newGlobalOperator != address(0));
     GlobalOperatorChanged(globalOperator, newGlobalOperator);
     globalOperator = newGlobalOperator;
   }
 
+  /// @dev Change crowdsale address - initially set to 0
+  /// @param newCrowdsale Address of crowdsale contract
   function changeCrowdsale(address newCrowdsale) onlyOwner public {
     require(newCrowdsale != address(0));
     CrowdsaleChanged(crowdsale, newCrowdsale);
@@ -77,6 +93,8 @@ contract Roles {
 
 }
 
+/// @title ERC20 contract
+/// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20-token-standard.md
 contract ERC20 {
   uint public totalSupply;
   function balanceOf(address who) public constant returns (uint);
@@ -89,59 +107,70 @@ contract ERC20 {
   event Approval(address indexed owner, address indexed spender, uint value);
 }
 
+/// @title ExtendedToken contract
 contract ExtendedToken is ERC20, Roles {
   using SafeMath for uint;
 
-  // max amount of minted tokens (6 billion tokens)
-  uint256 public constant mintCap = 6 * 10**27;
+  /// Max amount of minted tokens (6 billion tokens)
+  uint256 public constant MINT_CAP = 6 * 10**27;
 
-  // minimum amount to lock (100 000 tokens)
-  uint public constant minimumLockAmount = 100000 * 10**18;
+  /// Minimum amount to lock (100 000 tokens)
+  uint256 public constant MINIMUM_LOCK_AMOUNT = 100000 * 10**18;
 
-  // structure that describes locking of tokens
+  /// Structure that describes locking of tokens
   struct Locked {
-      uint lockedAmount; // amount of tokens locked
-      uint lastUpdated; // time when tokens were last locked
-      uint lastClaimed; // time when bonus was last claimed
+      //// Amount of tokens locked
+      uint256 lockedAmount; 
+      /// Time when tokens were last locked
+      uint256 lastUpdated; 
+      /// Time when bonus was last claimed
+      uint256 lastClaimed; 
   }
   
-  // used to pause the transfer
+  /// Used to pause the transfer
   bool public transferPaused = false;
 
-  // mappings for balances, locked amounts and allowance
+  /// Mapping for balances
   mapping (address => uint) balances;
+  /// Mapping for locked amounts
   mapping (address => Locked) locked;
+  /// Mapping for allowance
   mapping (address => mapping (address => uint)) internal allowed;
 
-  // pause transfer
+  /// @dev Pause token transfer
   function pause() public onlyOwner {
       transferPaused = true;
       Pause();
   }
 
-  // unpause transfer
+  /// @dev Unpause token transfer
   function unpause() public onlyOwner {
       transferPaused = false;
       Unpause();
   }
 
-  // owner, global operator and crowdsale can mint new tokens and update totalSupply
+  /// @dev Mint new tokens. Owner, Global operator and Crowdsale can mint new tokens and update totalSupply
+  /// @param _to Address where the tokens will be minted
+  /// @param _amount Amount of tokens to be minted
+  /// @return True if successfully minted
   function mint(address _to, uint _amount) public anyRole returns (bool) {
       _mint(_to, _amount);
       Mint(_to, _amount);
       return true;
   }
   
-  // internal mint with checks
+  /// @dev Used by mint function
   function _mint(address _to, uint _amount) internal returns (bool) {
       require(_to != address(0));
-	    require(totalSupply.add(_amount) <= mintCap);
+	    require(totalSupply.add(_amount) <= MINT_CAP);
       totalSupply = totalSupply.add(_amount);
       balances[_to] = balances[_to].add(_amount);
       return true;
   }
 
-  // only global operator can burn tokens from his own address
+  /// @dev Burns the amount of tokens. Tokens can be only burned from Global operator
+  /// @param _amount Amount of tokens to be burned
+  /// @return True if successfully burned
   function burn(uint _amount) public onlyGlobalOperator returns (bool) {
 	    uint256 newBalance = balances[msg.sender].sub(_amount);
 	    require(newBalance >= 0);
@@ -151,15 +180,20 @@ contract ExtendedToken is ERC20, Roles {
       return true;
   }
 
-  // check number of locked tokens
+  /// @dev Checks the amount of locked tokens
+  /// @param _from Address that we wish to check the locked amount
+  /// @return Number of locked tokens
   function lockedAmount(address _from) public constant returns (uint256) {
       return locked[_from].lockedAmount;
   }
 
   // token lock
+  /// @dev Locking tokens
+  /// @param _amount Amount of tokens to be locked
+  /// @return True if successfully locked
   function lock(uint _amount) public returns (bool) {
       require(msg.sender != address(0));
-      require(_amount >= minimumLockAmount);
+      require(_amount >= MINIMUM_LOCK_AMOUNT);
       uint newLockedAmount = locked[msg.sender].lockedAmount.add(_amount);
       require(balances[msg.sender] >= newLockedAmount);
       _checkLock(msg.sender);
@@ -169,7 +203,7 @@ contract ExtendedToken is ERC20, Roles {
       return true;
   }
 
-  // TODO: Maybe implement this in claimBonus() function fully
+  /// @dev Used by lock function
   function _checkLock(address _from) internal returns (bool) {
 
     /*
@@ -187,7 +221,7 @@ contract ExtendedToken is ERC20, Roles {
       return false;
     */
 
-    if (locked[_from].lockedAmount >= minimumLockAmount) { // or "> 0" ???
+    if (locked[_from].lockedAmount >= MINIMUM_LOCK_AMOUNT) { // or "> 0" ???
       uint referentTime = max(locked[_from].lastUpdated, locked[_from].lastClaimed);
       uint timeDifference = now.sub(referentTime);
       uint amountTemp = (locked[_from].lockedAmount.mul(timeDifference)).div(30 days); 
@@ -206,18 +240,21 @@ contract ExtendedToken is ERC20, Roles {
     return false;
   }
 
-  // function for claiming bonus -> maybe better claimLock()...
+  /// @dev Claim bonus from locked amount
+  /// @return True if successful
   function claimBonus() public returns (bool) {
       require(msg.sender != address(0));
       return _checkLock(msg.sender);
   }
 
-  // unlock the tokens
+  /// @dev Unlocking the locked amount of tokens
+  /// @param _amount Amount of tokens to be unlocked
+  /// @return True if successful
   function unlock(uint _amount) public returns (bool) {
       require(msg.sender != address(0));
       require(locked[msg.sender].lockedAmount >= _amount);
       uint newLockedAmount = locked[msg.sender].lockedAmount.sub(_amount);
-      if (newLockedAmount < minimumLockAmount) {
+      if (newLockedAmount < MINIMUM_LOCK_AMOUNT) {
         balances[msg.sender] = balances[msg.sender].add(locked[msg.sender].lockedAmount);
         Unlock(msg.sender, locked[msg.sender].lockedAmount);
         locked[msg.sender].lockedAmount = 0;
@@ -229,6 +266,7 @@ contract ExtendedToken is ERC20, Roles {
       return true;
   }
 
+  /// @dev Used by transfer function
   function _transfer(address _from, address _to, uint _value) internal {
     require(!transferPaused);
     require(_to != address(0));
@@ -239,6 +277,10 @@ contract ExtendedToken is ERC20, Roles {
     Transfer(_from, _to, _value);
   }
   
+  /// @dev Transfer tokens
+  /// @param _to Address to receive the tokens
+  /// @param _value Amount of tokens to be sent
+  /// @return True if successful
   function transfer(address _to, uint _value) public returns (bool) {
     _transfer(msg.sender, _to, _value);
     return true;
@@ -250,6 +292,9 @@ contract ExtendedToken is ERC20, Roles {
     return true;
   }
 
+  /// @dev Check balance of an address
+  /// @param _owner Address to be checked
+  /// @return Number of tokens
   function balanceOf(address _owner) public constant returns (uint balance) {
     return balances[_owner];
   }
@@ -281,17 +326,21 @@ contract ExtendedToken is ERC20, Roles {
     return true;
   }
 
-  // utility
+  /// @dev Get max number
+  /// @param a First number
+  /// @param b Second number
+  /// @return The bigger one :)
   function max(uint a, uint b) pure internal returns(uint) {
     return (a > b) ? a : b;
   }
 
-  // don't accept ether
+  /// @dev Don't accept ETH
   function () public payable {
     revert();
   }
 
-  // claim mistakenly sent tokens to this contract including ether
+  /// @dev Claim tokens that have been sent to contract mistakenly
+  /// @param _token Token address that we want to claim
   function claimTokens(address _token) public onlyOwner {
     if (_token == address(0)) {
          owner.transfer(this.balance);
@@ -304,7 +353,7 @@ contract ExtendedToken is ERC20, Roles {
     ClaimedTokens(_token, owner, balance);
   }
 
-  // events
+  /// Events
   event Mint(address _to, uint _amount);
   event Burn(address _from, uint _amount);
   event Lock(address _from, uint _amount);
@@ -316,6 +365,7 @@ contract ExtendedToken is ERC20, Roles {
 
 }
 
+/// @title Wizzle Infinity Token contract
 contract WizzleInfinityToken is ExtendedToken {
     string public constant name = "Wizzle Infinity Token";
     string public constant symbol = "WZI";

@@ -1,6 +1,8 @@
 pragma solidity ^0.4.18;
 
+/// @title Ownable contract
 library SafeMath {
+
   function mul(uint256 a, uint256 b) internal constant returns (uint256) {
     uint256 c = a * b;
     assert(a == 0 || c / a == b);
@@ -22,8 +24,10 @@ library SafeMath {
     assert(c >= a);
     return c;
   }
+
 }
 
+/// @title Ownable contract
 contract Ownable {
   
   address public owner;
@@ -38,14 +42,18 @@ contract Ownable {
     _;
   }
 
+  /// @dev Change ownership
+  /// @param newOwner Address of the new owner
   function transferOwnership(address newOwner) onlyOwner public {
     require(newOwner != address(0));
     OwnershipTransferred(owner, newOwner);
     owner = newOwner;
-    }
+  }
 
 }
 
+/// @title ERC20 contract
+/// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20-token-standard.md
 contract ERC20 {
   uint public totalSupply;
   function balanceOf(address who) public constant returns (uint);
@@ -58,23 +66,27 @@ contract ERC20 {
   event Approval(address indexed owner, address indexed spender, uint value);
 }
 
+/// @title ExtendedERC20 contract
 contract ExtendedERC20 is ERC20 {
   function mint(address _to, uint _amount) public returns (bool);
 }
 
+/// @title WizzleGlobalHelper contract
 contract WizzleGlobalHelper {
   function isWhitelisted(address addr) public constant returns (bool);
 }
 
+/// @title Crowdsale contract
 contract Crowdsale is Ownable {
   using SafeMath for uint256;
   
-  // token reference
+  /// Token reference
   ExtendedERC20 public token;
-  // helper for whitelisting
+  /// WizzleGlobalHelper reference - helper for whitelisting
   WizzleGlobalHelper public helper;
-  // presale time range (inclusive)
+  /// Presale strat time (inclusive)
   uint256 public startTimePre;
+  /// Presale time range (inclusive)
   uint256 public endTimePre;
   // ICO time range (inclusive)
   uint256 public startTimeIco;

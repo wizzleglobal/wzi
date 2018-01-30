@@ -22,7 +22,7 @@ contract Ownable {
     owner = newOwner;
     }
 }
-/// @title Mortal contract - used to selfdestruct once the crowdsale is finished
+/// @title Mortal contract - used to selfdestruct once we have no use of this contract
 contract Mortal is Ownable {
     function executeSelfdestruct() onlyOwner {
         selfdestruct(owner);
@@ -45,6 +45,7 @@ contract ERC20 {
 
 /// @title WizzleGlobalHelper contract
 contract WizzleGlobalHelper is Mortal {
+    
     mapping (address => bool) public whitelisted;
     ERC20 public token;
 
