@@ -115,7 +115,7 @@ contract Crowdsale is Ownable {
   /// ICO discount percentage 3
   uint8 public icoDiscountPercentageLevel3;
 
-  function Crowdsale(uint256 _startTimePre, uint256 _endTimePre, uint256 _startTimeIco, uint256 _endTimeIco, uint32 _rate, address _wallet, address _tokenAddress) {
+  function Crowdsale(uint256 _startTimePre, uint256 _endTimePre, uint256 _startTimeIco, uint256 _endTimeIco, uint32 _rate, address _wallet, address _tokenAddress, address _helperAddress) {
     require(_startTimePre >= now);
     require(_endTimePre >= _startTimePre);
     require(_startTimeIco >= _endTimePre);
@@ -130,6 +130,7 @@ contract Crowdsale is Ownable {
     rate = _rate;
     wallet = _wallet;
     token = ExtendedERC20(_tokenAddress);
+    helper = WizzleGlobalHelper(_helperAddress);
     icoDiscountLevel1 = 500 * 10**24; // 500m tokens 
     icoDiscountLevel2 = 500 * 10**24; // 500m tokens
     icoDiscountPercentageLevel1 = 40; // 40% discount
@@ -298,8 +299,9 @@ contract Crowdsale is Ownable {
 /// @title WizzleInfinityTokenCrowdsale contract
 contract WizzleInfinityTokenCrowdsale is Crowdsale {
 
-  function WizzleInfinityTokenCrowdsale(uint256 _startTimePre, uint256 _endTimePre, uint256 _startTimeIco, uint256 _endTimeIco, uint32 _rate, address _wallet, address _tokenAddress) Crowdsale(_startTimePre, _endTimePre, _startTimeIco, _endTimeIco, _rate, _wallet, _tokenAddress) public {
+  function WizzleInfinityTokenCrowdsale(uint256 _startTimePre, uint256 _endTimePre, uint256 _startTimeIco, uint256 _endTimeIco, uint32 _rate, address _wallet, address _tokenAddress, address _helperAddress) 
+  Crowdsale(_startTimePre, _endTimePre, _startTimeIco, _endTimeIco, _rate, _wallet, _tokenAddress, _helperAddress) public {
 
-    }
+  }
 
 }
