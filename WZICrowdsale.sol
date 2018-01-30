@@ -84,36 +84,38 @@ contract Crowdsale is Ownable {
   ExtendedERC20 public token;
   /// WizzleGlobalHelper reference - helper for whitelisting
   WizzleGlobalHelper public helper;
-  /// Presale strat time (inclusive)
+  /// Presale start time (inclusive)
   uint256 public startTimePre;
-  /// Presale time range (inclusive)
+  /// Presale end time (inclusive)
   uint256 public endTimePre;
-  // ICO time range (inclusive)
+  /// ICO start time (inclusive)
   uint256 public startTimeIco;
+  /// ICO end time
   uint256 public endTimeIco;
-  // address where funds are collected
+  /// Address where the fund will be collected
   address public wallet;
-  // EUR per 1 ETH
+  /// EUR per 1 ETH rate
   uint32 public rate;
-  // amount of tokens sold in presale
+  /// Amount of tokens sold in presale
   uint256 public tokensSoldPre;
-  // amount of tokens sold in ICO
+  /// Amount of tokens sold in ICO
   uint256 public tokensSoldIco;
-  // amount of raised money in wei
+  /// Amount of raised money in wei
   uint256 public weiRaised;
-  // number of contributors
+  /// Number of contributors
   uint256 public contributors;
-  //
+  /// Amount of tokens in ICO discount level 1 
   uint256 public icoDiscountLevel1;
-  //
+  /// Amount of tokens in ICO discount level 2
   uint256 public icoDiscountLevel2;
-  //
+  /// ICO discount percentage 1
   uint8 public icoDiscountPercentageLevel1;
+  /// ICO discount percentage 2
   uint8 public icoDiscountPercentageLevel2;
+  /// ICO discount percentage 3
   uint8 public icoDiscountPercentageLevel3;
 
   function Crowdsale(uint256 _startTimePre, uint256 _endTimePre, uint256 _startTimeIco, uint256 _endTimeIco, uint32 _rate, address _wallet, address _tokenAddress) {
-    // startTimePre < endTimePre < startTimeIco < endTimeIco
     require(_startTimePre >= now);
     require(_endTimePre >= _startTimePre);
     require(_startTimeIco >= _endTimePre);
@@ -135,17 +137,20 @@ contract Crowdsale is Ownable {
     icoDiscountPercentageLevel3 = 25; // 25% discount
   }
 
-  // setting EUR-ETH rate
+  /// @dev Set the rate of ETH - EUR
+  /// @param _rate Rate of ETH - EUR
   function setRate(uint32 _rate) public onlyOwner {
     require(_rate > 0);
     rate = _rate;
   }
 
-  // fallback function for crowdsale contribution
+  /// @dev Fallback function for crowdsale contribution
   function () payable {
     buyTokens(msg.sender);
   }
 
+  /// @dev Buy tokens function
+  /// @param beneficiary Address which will receive the tokens
   function buyTokens(address beneficiary) public payable {
     require(beneficiary != address(0));
     require(helper.isWhitelisted(beneficiary));
@@ -153,7 +158,8 @@ contract Crowdsale is Ownable {
     require(weiAmount > 0);
     uint256 tokenAmount = 0;
     if (isPresale()) {
-      require(weiAmount >= 1 ether); //minimum contribution of 1 ether during crowdsale
+      /// Minimum contribution of 1 ether during crowdsale
+      require(weiAmount >= 1 ether); 
       tokenAmount = getTokenAmount(weiAmount, 50);
       uint256 newTokensSoldPre = tokensSoldPre.add(tokenAmount);
       require(newTokensSoldPre <= 1500 * 10**6 * 10**18);
@@ -161,16 +167,17 @@ contract Crowdsale is Ownable {
     } else if (isIco()) {
       uint8 discountPercentage = getIcoDiscountPercentage();
       tokenAmount = getTokenAmount(weiAmount, discountPercentage);
-      require(tokenAmount >= 1); //minimum contribution 1 token during ICO
+      /// Minimum contribution 1 token during ICO
+      require(tokenAmount >= 1); 
       tokensSoldIco = tokensSoldIco.add(tokenAmount);
     } else {
-      // stop execution and return remaining gas
+      /// Stop execution and return remaining gas
       require(false);
     }
     executeTransaction(beneficiary, weiAmount, tokenAmount);
   }
 
-  // internal function for calculation of ICO discount percentage depending on levels
+  /// @dev Internal function used for calculating ICO discount percentage depending on levels
   function getIcoDiscountPercentage() internal constant returns (uint8) {
     if (tokensSoldIco <= icoDiscountLevel1) {
       return icoDiscountPercentageLevel1;
@@ -181,15 +188,16 @@ contract Crowdsale is Ownable {
     }
   }
 
-  // calculate amount of tokens based on discount percentage
+  /// @dev Internal function used to calculate amount of tokens based on discount percentage
   function getTokenAmount(uint256 weiAmount, uint8 discountPercentage) internal constant returns (uint256) {
-    require(discountPercentage >= 0 && discountPercentage < 100); // avoid division with zero
+    /// Less than 100 to avoid division with zero
+    require(discountPercentage >= 0 && discountPercentage < 100); 
     uint256 baseTokenAmount = weiAmount.mul(rate);
     uint256 tokenAmount = baseTokenAmount.mul(10000).div(100 - discountPercentage);
     return tokenAmount;
   }
 
-  // internal function for execution of crowdsale transaction and proper logging
+  /// @dev Internal function for execution of crowdsale transaction and proper logging used by payable functions
   function executeTransaction(address beneficiary, uint256 weiAmount, uint256 tokenAmount) internal {
     weiRaised = weiRaised.add(weiAmount);
     token.mint(beneficiary, tokenAmount);
@@ -198,7 +206,9 @@ contract Crowdsale is Ownable {
     wallet.transfer(weiAmount);
   }
 
-  // owner has ability to change presale time range
+  /// @dev Used to change presale time
+  /// @param _startTimePre Start time of presale
+  /// @param _endTimePre End time of presale
   function changePresaleTimeRange(uint256 _startTimePre, uint256 _endTimePre) public onlyOwner {
     require(_endTimePre >= _startTimePre);
     PresaleTimeRangeChanged(owner, _startTimePre, _endTimePre);
@@ -206,7 +216,9 @@ contract Crowdsale is Ownable {
     endTimePre = _endTimePre;
   }
 
-  // owner has ability to change ICO time range
+  /// @dev Used to change time of ICO
+  /// @param _startTimeIco Start time of ICO
+  /// @param _endTimeIco End time of ICO
   function changeIcoTimeRange(uint256 _startTimeIco, uint256 _endTimeIco) public onlyOwner {
     require(_endTimeIco >= _startTimeIco);
     IcoTimeRangeChanged(owner, _startTimeIco, _endTimeIco);
@@ -214,7 +226,9 @@ contract Crowdsale is Ownable {
     endTimeIco = _endTimeIco;
   }
 
-  // change discount levels
+  /// @dev Change amount of tokens in discount phases
+  /// @param _icoDiscountLevel1 Amount of tokens in first phase
+  /// @param _icoDiscountLevel2 Amount of tokens in second phase
   function changeDiscountLevels(uint256 _icoDiscountLevel1, uint256 _icoDiscountLevel2) public onlyOwner {
     require(_icoDiscountLevel1 > 0 && _icoDiscountLevel2 > 0);
     DiscountLevelsChanged(owner, _icoDiscountLevel1, _icoDiscountLevel2);
@@ -222,7 +236,10 @@ contract Crowdsale is Ownable {
     icoDiscountLevel2 = _icoDiscountLevel2;
   }
 
-  // change discount percentages
+  /// @dev Change discount percentages for different phases
+  /// @param _icoDiscountPercentageLevel1 Discount percentage of phase 1
+  /// @param _icoDiscountPercentageLevel2 Discount percentage of phase 2
+  /// @param _icoDiscountPercentageLevel3 Discount percentage of phase 3
   function changeDiscountPercentages(uint8 _icoDiscountPercentageLevel1, uint8 _icoDiscountPercentageLevel2, uint8 _icoDiscountPercentageLevel3) public onlyOwner {
     require(_icoDiscountPercentageLevel1 >= 0 && _icoDiscountPercentageLevel1 < 100);
     require(_icoDiscountPercentageLevel2 >= 0 && _icoDiscountPercentageLevel2 < 100);
@@ -233,32 +250,33 @@ contract Crowdsale is Ownable {
     icoDiscountPercentageLevel3 = _icoDiscountPercentageLevel3;
   }
 
-  // true if presale is still active
+  /// @dev Check if presale is active
   function isPresale() public constant returns (bool) {
     return now >= startTimePre && now <= endTimePre;
   }
 
-  // true if ICO is still active
+  /// @dev Check if ICO is active
   function isIco() public constant returns (bool) {
     return now >= startTimeIco && now <= endTimeIco;
   }
 
-  // true if presale event has ended
+  /// @dev Check if presale has ended
   function hasPresaleEnded() public constant returns (bool) {
     return now > endTimePre;
   }
 
-  // true if ICO event has ended
+  /// @dev Check if ICO has ended
   function hasIcoEnded() public constant returns (bool) {
     return now > endTimeIco;
   }
 
-  // tokens sold in both presale and ICO
+  /// @dev Amount of tokens that have been sold during both presale and ICO phase
   function cummulativeTokensSold() public constant returns (uint256) {
     return tokensSoldPre + tokensSoldIco;
   }
 
-  // claim mistakenly sent tokens to this contract
+  /// @dev Function to extract mistakenly sent ERC20 tokens sent to Crowdsale contract
+  /// @param _token Address of token we want to extract
   function claimTokens(address _token) public onlyOwner {
     require(_token != address(0));
     ERC20 erc20Token = ERC20(_token);
@@ -267,7 +285,7 @@ contract Crowdsale is Ownable {
     ClaimedTokens(_token, owner, balance);
   }
 
-  // events
+  /// Events
   event TokenPurchase(address indexed _purchaser, address indexed _beneficiary, uint256 _value, uint256 _amount);
   event PresaleTimeRangeChanged(address indexed _owner, uint256 _startTimePre, uint256 _endTimePre);
   event IcoTimeRangeChanged(address indexed _owner, uint256 _startTimeIco, uint256 _endTimeIco);
@@ -277,16 +295,10 @@ contract Crowdsale is Ownable {
 
 }
 
+/// @title WizzleInfinityTokenCrowdsale contract
 contract WizzleInfinityTokenCrowdsale is Crowdsale {
 
-  function WizzleInfinityTokenCrowdsale(uint256 _startTimePre, //
-                                        uint256 _endTimePre, //
-                                        uint256 _startTimeIco, //
-                                        uint256 _endTimeIco, //
-                                        uint32 _rate, //
-                                        address _wallet, // 
-                                        address _tokenAddress) //
-    Crowdsale(_startTimePre, _endTimePre, _startTimeIco, _endTimeIco, _rate, _wallet, _tokenAddress) {
+  function WizzleInfinityTokenCrowdsale(uint256 _startTimePre, uint256 _endTimePre, uint256 _startTimeIco, uint256 _endTimeIco, uint32 _rate, address _wallet, address _tokenAddress) Crowdsale(_startTimePre, _endTimePre, _startTimeIco, _endTimeIco, _rate, _wallet, _tokenAddress) public {
 
     }
 

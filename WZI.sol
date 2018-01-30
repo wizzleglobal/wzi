@@ -38,11 +38,6 @@ contract Roles {
 
   /// Crowdsale address
   address public crowdsale;
-
-  /// Events
-  event OwnerChanged(address indexed _previousOwner, address indexed _newOwner);
-  event GlobalOperatorChanged(address indexed _previousGlobalOperator, address indexed _newGlobalOperator);
-  event CrowdsaleChanged(address indexed _previousCrowdsale, address indexed _newCrowdsale);
   
   function Roles() public {
     owner = msg.sender;
@@ -52,16 +47,19 @@ contract Roles {
     crowdsale = address(0); 
   }
 
+  // modifier to enforce only owner function access
   modifier onlyOwner() {
     require(msg.sender == owner);
     _;
   }
 
+  // modifier to enforce only global operator function access
   modifier onlyGlobalOperator() {
     require(msg.sender == globalOperator);
     _;
   }
 
+  // modifier to enforce any of 3 specified roles to access function
   modifier anyRole() {
     require(msg.sender == owner || msg.sender == globalOperator || msg.sender == crowdsale);
     _;
@@ -90,6 +88,11 @@ contract Roles {
     CrowdsaleChanged(crowdsale, newCrowdsale);
     crowdsale = newCrowdsale;
   }
+
+  /// Events
+  event OwnerChanged(address indexed _previousOwner, address indexed _newOwner);
+  event GlobalOperatorChanged(address indexed _previousGlobalOperator, address indexed _newGlobalOperator);
+  event CrowdsaleChanged(address indexed _previousCrowdsale, address indexed _newCrowdsale);
 
 }
 
@@ -206,37 +209,17 @@ contract ExtendedToken is ERC20, Roles {
   /// @dev Used by lock function
   function _checkLock(address _from) internal returns (bool) {
 
-    /*
-      if (locked[_from].lockedAmount != 0) {
-        if (locked[_from].lastUpdated + 30 days >= now) {
-            uint _value = locked[_from].lockedAmount.div(100);
-            totalSupply = totalSupply.add(_value);
-            balances[_from] = balances[_from].add(_value);
-            locked[_from].lastClaimed = now;
-            LockClaimed(_from, _value);
-            return true;
-        }
-        return false;
-      }
-      return false;
-    */
-
     if (locked[_from].lockedAmount >= MINIMUM_LOCK_AMOUNT) { // or "> 0" ???
       uint referentTime = max(locked[_from].lastUpdated, locked[_from].lastClaimed);
       uint timeDifference = now.sub(referentTime);
       uint amountTemp = (locked[_from].lockedAmount.mul(timeDifference)).div(30 days); 
       uint mintableAmount = amountTemp.div(100);
-      //uint mintPercentage = now.sub(referentTime).div(30 days);
-      //uint mintableAmount = (locked[_from].lockedAmount.mul(mintPercentage)).div(100);
 
       locked[_from].lastClaimed = now;
       _mint(_from, mintableAmount);
       LockClaimed(_from, mintableAmount);
       return true;
     }
-    //else {
-    //  locked[_from].lastUpdated = now;
-    //}
     return false;
   }
 
@@ -370,6 +353,7 @@ contract WizzleInfinityToken is ExtendedToken {
     string public constant name = "Wizzle Infinity Token";
     string public constant symbol = "WZI";
     uint8 public constant decimals = 18;
+    string public constant version = "v1";
 
     function WizzleInfinityToken() public { 
       totalSupply = 0;
