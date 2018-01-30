@@ -81,7 +81,7 @@ contract Crowdsale is Ownable {
   uint256 public endTimeIco;
   // address where funds are collected
   address public wallet;
-  // how many token units a buyer gets per wei
+  // EUR per 1 ETH
   uint32 public rate;
   // amount of tokens sold in presale
   uint256 public tokensSoldPre;
@@ -123,6 +123,7 @@ contract Crowdsale is Ownable {
     icoDiscountPercentageLevel3 = 25; // 25% discount
   }
 
+  // setting EUR-ETH rate
   function setRate(uint32 _rate) public onlyOwner {
     require(_rate > 0);
     rate = _rate;
@@ -168,15 +169,15 @@ contract Crowdsale is Ownable {
     }
   }
 
-  //
+  // calculate amount of tokens based on discount percentage
   function getTokenAmount(uint256 weiAmount, uint8 discountPercentage) internal constant returns (uint256) {
-    require(discountPercentage >= 0 && discountPercentage <= 100);
+    require(discountPercentage >= 0 && discountPercentage < 100); // avoid division with zero
     uint256 baseTokenAmount = weiAmount.mul(rate);
     uint256 tokenAmount = baseTokenAmount.mul(10000).div(100 - discountPercentage);
     return tokenAmount;
   }
 
-  //
+  // internal function for execution of crowdsale transaction and proper logging
   function executeTransaction(address beneficiary, uint256 weiAmount, uint256 tokenAmount) internal {
     weiRaised = weiRaised.add(weiAmount);
     token.mint(beneficiary, tokenAmount);
@@ -211,9 +212,9 @@ contract Crowdsale is Ownable {
 
   // change discount percentages
   function changeDiscountPercentages(uint8 _icoDiscountPercentageLevel1, uint8 _icoDiscountPercentageLevel2, uint8 _icoDiscountPercentageLevel3) public onlyOwner {
-    require(_icoDiscountPercentageLevel1 >= 0 && _icoDiscountPercentageLevel1 <= 100);
-    require(_icoDiscountPercentageLevel2 >= 0 && _icoDiscountPercentageLevel2 <= 100);
-    require(_icoDiscountPercentageLevel3 >= 0 && _icoDiscountPercentageLevel3 <= 100);
+    require(_icoDiscountPercentageLevel1 >= 0 && _icoDiscountPercentageLevel1 < 100);
+    require(_icoDiscountPercentageLevel2 >= 0 && _icoDiscountPercentageLevel2 < 100);
+    require(_icoDiscountPercentageLevel3 >= 0 && _icoDiscountPercentageLevel3 < 100);
     DiscountPercentagesChanged(owner, _icoDiscountPercentageLevel1, _icoDiscountPercentageLevel2, _icoDiscountPercentageLevel3);
     icoDiscountPercentageLevel1 = _icoDiscountPercentageLevel1;
     icoDiscountPercentageLevel2 = _icoDiscountPercentageLevel2;
