@@ -1,5 +1,6 @@
 pragma solidity ^0.4.18;
 
+/// @title Ownable contract
 contract Ownable {
 
   address public owner;
@@ -21,13 +22,15 @@ contract Ownable {
     owner = newOwner;
     }
 }
-
+/// @title Mortal contract - used to selfdestruct once the crowdsale is finished
 contract Mortal is Ownable {
     function executeSelfdestruct() onlyOwner {
         selfdestruct(owner);
     }
 }
 
+/// @title ERC20 contract
+/// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20-token-standard.md
 contract ERC20 {
   uint public totalSupply;
   function balanceOf(address who) public constant returns (uint);
@@ -40,23 +43,31 @@ contract ERC20 {
   event Approval(address indexed owner, address indexed spender, uint value);
 }
 
+/// @title WizzleGlobalHelper contract
 contract WizzleGlobalHelper is Mortal {
     mapping (address => bool) whitelisted;
     ERC20 public token;
 
-    function WizzleGlobalHelper(address _token) {
+    function WizzleGlobalHelper(address _token) public {
         token = ERC20(_token);
     }
+
+    /// @dev Whitelist a single address
+    /// @param addr Address to be whitelisted
     function whitelist(address addr) public onlyOwner {
         require(!whitelisted[addr]);
         whitelisted[addr] = true;
     }
 
+    /// @dev Remove an address from whitelist
+    /// @param addr Address to be removed from whitelist
     function unwhitelist(address addr) public onlyOwner {
         require(whitelisted[addr]);
         whitelisted[addr] = false;
     }
 
+    /// @dev Whitelist array of addresses
+    /// @param arr Array of addresses to be whitelisted
     function bulkWhitelist(address[] arr) public onlyOwner {
         for (uint i = 0; i < arr.length; i++) {
             address addr = arr[i];
@@ -64,11 +75,18 @@ contract WizzleGlobalHelper is Mortal {
         }
     }
 
+    /// @dev Check if address is whitelisted
+    /// @param addr Address to be checked if it is whitelisted
+    /// @return Is address whitelisted?
     function isWhitelisted(address addr) public constant returns (bool) {
         return whitelisted[addr];
     }   
 
-    function airdrop(address _tokenAddr, address[] dests, uint256[] values) returns (uint256) {
+    /// @dev Transfer tokens to addresses registered for airdrop
+    /// @param dests Array of addresses that have registered for airdrop
+    /// @param values Array of token amount for each address that have registered for airdrop
+    /// @return Number of transfers
+    function airdrop(address[] dests, uint256[] values) public onlyOwner returns (uint256) {
         uint256 i = 0;
         while (i < dests.length) {
            token.transfer(dests[i], values[i]);
