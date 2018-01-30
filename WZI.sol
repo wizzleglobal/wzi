@@ -134,9 +134,9 @@ contract ExtendedToken is ERC20, Roles {
   bool public transferPaused = false;
 
   /// Mapping for balances
-  mapping (address => uint) balances;
+  mapping (address => uint) public balances;
   /// Mapping for locked amounts
-  mapping (address => Locked) locked;
+  mapping (address => Locked) public locked;
   /// Mapping for allowance
   mapping (address => mapping (address => uint)) internal allowed;
 
@@ -206,21 +206,25 @@ contract ExtendedToken is ERC20, Roles {
       return true;
   }
 
-  /// @dev Used by lock function
+  /// @dev Used by lock, claimBonus and unlock functions
   function _checkLock(address _from) internal returns (bool) {
+    if (locked[_from].lockedAmount >= MINIMUM_LOCK_AMOUNT) {
+      return _checkLockAmount(_from, locked[_from].lockedAmount);
+    }
+    return false;
+  }
 
-    if (locked[_from].lockedAmount >= MINIMUM_LOCK_AMOUNT) { // or "> 0" ???
+  /// @dev Used by lock and unlock functions
+  function _checkLockAmount(address _from, uint256 _amount) internal returns (bool) {
       uint referentTime = max(locked[_from].lastUpdated, locked[_from].lastClaimed);
       uint timeDifference = now.sub(referentTime);
-      uint amountTemp = (locked[_from].lockedAmount.mul(timeDifference)).div(30 days); 
+      uint amountTemp = (_amount.mul(timeDifference)).div(30 days); 
       uint mintableAmount = amountTemp.div(100);
 
       locked[_from].lastClaimed = now;
       _mint(_from, mintableAmount);
       LockClaimed(_from, mintableAmount);
       return true;
-    }
-    return false;
   }
 
   /// @dev Claim bonus from locked amount
@@ -238,13 +242,13 @@ contract ExtendedToken is ERC20, Roles {
       require(locked[msg.sender].lockedAmount >= _amount);
       uint newLockedAmount = locked[msg.sender].lockedAmount.sub(_amount);
       if (newLockedAmount < MINIMUM_LOCK_AMOUNT) {
-        balances[msg.sender] = balances[msg.sender].add(locked[msg.sender].lockedAmount);
         Unlock(msg.sender, locked[msg.sender].lockedAmount);
+        _checkLock(msg.sender);
         locked[msg.sender].lockedAmount = 0;
       } else {
-        balances[msg.sender] = balances[msg.sender].add(newLockedAmount);
         locked[msg.sender].lockedAmount = newLockedAmount;
         Unlock(msg.sender, _amount);
+        _checkLockAmount(msg.sender, _amount);
       }
       return true;
   }
@@ -254,7 +258,6 @@ contract ExtendedToken is ERC20, Roles {
     require(!transferPaused);
     require(_to != address(0));
     require(balances[_from] >= _value.add(locked[_from].lockedAmount));
-    require(balances[_to].add(_value) >= balances[_to]);    
     balances[_from] = balances[_from].sub(_value);
     balances[_to] = balances[_to].add(_value);
     Transfer(_from, _to, _value);
