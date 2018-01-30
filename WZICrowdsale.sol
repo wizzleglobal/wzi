@@ -46,7 +46,19 @@ contract Ownable {
 
 }
 
-contract Token {
+contract ERC20 {
+  uint public totalSupply;
+  function balanceOf(address who) public constant returns (uint);
+  function transfer(address to, uint value) public returns (bool);
+  event Transfer(address indexed from, address indexed to, uint value);
+  
+  function allowance(address owner, address spender) public constant returns (uint);
+  function transferFrom(address from, address to, uint value) public returns (bool);
+  function approve(address spender, uint value) public returns (bool);
+  event Approval(address indexed owner, address indexed spender, uint value);
+}
+
+contract ExtendedERC20 is ERC20 {
   function mint(address _to, uint _amount) public returns (bool);
 }
 
@@ -58,7 +70,7 @@ contract Crowdsale is Ownable {
   using SafeMath for uint256;
   
   // token reference
-  Token public token;
+  ExtendedERC20 public token;
   // helper for whitelisting
   WizzleGlobalHelper public helper;
   // presale time range (inclusive)
@@ -69,7 +81,7 @@ contract Crowdsale is Ownable {
   uint256 public endTimeIco;
   // address where funds are collected
   address public wallet;
-  // how many token units a buyer gets per wei
+  // EUR per 1 ETH
   uint32 public rate;
   // amount of tokens sold in presale
   uint256 public tokensSoldPre;
@@ -83,12 +95,10 @@ contract Crowdsale is Ownable {
   uint256 public icoDiscountLevel1;
   //
   uint256 public icoDiscountLevel2;
-  
-  // purchaser - who paid for the tokens
-  // beneficiary - who got the tokens
-  // value - weis paid for purchase
-  // amount - amount of tokens purchased
-  event TokenPurchase(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount);
+  //
+  uint8 public icoDiscountPercentageLevel1;
+  uint8 public icoDiscountPercentageLevel2;
+  uint8 public icoDiscountPercentageLevel3;
 
   function Crowdsale(uint256 _startTimePre, uint256 _endTimePre, uint256 _startTimeIco, uint256 _endTimeIco, uint32 _rate, address _wallet, address _tokenAddress) {
     // startTimePre < endTimePre < startTimeIco < endTimeIco
@@ -105,29 +115,33 @@ contract Crowdsale is Ownable {
     endTimeIco = _endTimeIco;
     rate = _rate;
     wallet = _wallet;
-    token = Token(_tokenAddress);
+    token = ExtendedERC20(_tokenAddress);
     icoDiscountLevel1 = 500 * 10**24; // 500m tokens 
     icoDiscountLevel2 = 500 * 10**24; // 500m tokens
+    icoDiscountPercentageLevel1 = 40; // 40% discount
+    icoDiscountPercentageLevel2 = 30; // 30% discount
+    icoDiscountPercentageLevel3 = 25; // 25% discount
   }
 
+  // setting EUR-ETH rate
   function setRate(uint32 _rate) public onlyOwner {
     require(_rate > 0);
     rate = _rate;
   }
 
+  // fallback function for crowdsale contribution
   function () payable {
     buyTokens(msg.sender);
   }
 
   function buyTokens(address beneficiary) public payable {
     require(beneficiary != address(0));
-    //here whitelisting check
     require(helper.isWhitelisted(beneficiary));
     uint256 weiAmount = msg.value;
     require(weiAmount > 0);
     uint256 tokenAmount = 0;
     if (isPresale()) {
-      require(weiAmount >= 1 ether);
+      require(weiAmount >= 1 ether); //minimum contribution of 1 ether during crowdsale
       tokenAmount = getTokenAmount(weiAmount, 50);
       uint256 newTokensSoldPre = tokensSoldPre.add(tokenAmount);
       require(newTokensSoldPre <= 1500 * 10**6 * 10**18);
@@ -135,6 +149,7 @@ contract Crowdsale is Ownable {
     } else if (isIco()) {
       uint8 discountPercentage = getIcoDiscountPercentage();
       tokenAmount = getTokenAmount(weiAmount, discountPercentage);
+      require(tokenAmount >= 1); //minimum contribution 1 token during ICO
       tokensSoldIco = tokensSoldIco.add(tokenAmount);
     } else {
       // stop execution and return remaining gas
@@ -143,25 +158,26 @@ contract Crowdsale is Ownable {
     executeTransaction(beneficiary, weiAmount, tokenAmount);
   }
 
+  // internal function for calculation of ICO discount percentage depending on levels
   function getIcoDiscountPercentage() internal constant returns (uint8) {
-    //uint256 discountLevel1 = 500 * 10**6 * 10**18;
-    //uint256 discountLevel2 = 500 * 10**6 * 10**18;
     if (tokensSoldIco <= icoDiscountLevel1) {
-      return 40;
-    } else if (tokensSoldIco <= icoDiscountLevel1 + icoDiscountLevel2) {
-      return 30;
+      return icoDiscountPercentageLevel1;
+    } else if (tokensSoldIco <= icoDiscountLevel1.add(icoDiscountLevel2)) {
+      return icoDiscountPercentageLevel2;
     } else { 
-      return 25;
+      return icoDiscountPercentageLevel3; //for everything else
     }
   }
 
+  // calculate amount of tokens based on discount percentage
   function getTokenAmount(uint256 weiAmount, uint8 discountPercentage) internal constant returns (uint256) {
-    require(discountPercentage >= 0 && discountPercentage <= 100);
+    require(discountPercentage >= 0 && discountPercentage < 100); // avoid division with zero
     uint256 baseTokenAmount = weiAmount.mul(rate);
     uint256 tokenAmount = baseTokenAmount.mul(10000).div(100 - discountPercentage);
     return tokenAmount;
   }
 
+  // internal function for execution of crowdsale transaction and proper logging
   function executeTransaction(address beneficiary, uint256 weiAmount, uint256 tokenAmount) internal {
     weiRaised = weiRaised.add(weiAmount);
     token.mint(beneficiary, tokenAmount);
@@ -170,8 +186,40 @@ contract Crowdsale is Ownable {
     wallet.transfer(weiAmount);
   }
 
-  // change startTime, endTime for presale and ico
+  // owner has ability to change presale time range
+  function changePresaleTimeRange(uint256 _startTimePre, uint256 _endTimePre) public onlyOwner {
+    require(_endTimePre >= _startTimePre);
+    PresaleTimeRangeChanged(owner, _startTimePre, _endTimePre);
+    startTimePre = _startTimePre;
+    endTimePre = _endTimePre;
+  }
+
+  // owner has ability to change ICO time range
+  function changeIcoTimeRange(uint256 _startTimeIco, uint256 _endTimeIco) public onlyOwner {
+    require(_endTimeIco >= _startTimeIco);
+    IcoTimeRangeChanged(owner, _startTimeIco, _endTimeIco);
+    startTimeIco = _startTimeIco;
+    endTimeIco = _endTimeIco;
+  }
+
+  // change discount levels
+  function changeDiscountLevels(uint256 _icoDiscountLevel1, uint256 _icoDiscountLevel2) public onlyOwner {
+    require(_icoDiscountLevel1 > 0 && _icoDiscountLevel2 > 0);
+    DiscountLevelsChanged(owner, _icoDiscountLevel1, _icoDiscountLevel2);
+    icoDiscountLevel1 = _icoDiscountLevel1;
+    icoDiscountLevel2 = _icoDiscountLevel2;
+  }
+
   // change discount percentages
+  function changeDiscountPercentages(uint8 _icoDiscountPercentageLevel1, uint8 _icoDiscountPercentageLevel2, uint8 _icoDiscountPercentageLevel3) public onlyOwner {
+    require(_icoDiscountPercentageLevel1 >= 0 && _icoDiscountPercentageLevel1 < 100);
+    require(_icoDiscountPercentageLevel2 >= 0 && _icoDiscountPercentageLevel2 < 100);
+    require(_icoDiscountPercentageLevel3 >= 0 && _icoDiscountPercentageLevel3 < 100);
+    DiscountPercentagesChanged(owner, _icoDiscountPercentageLevel1, _icoDiscountPercentageLevel2, _icoDiscountPercentageLevel3);
+    icoDiscountPercentageLevel1 = _icoDiscountPercentageLevel1;
+    icoDiscountPercentageLevel2 = _icoDiscountPercentageLevel2;
+    icoDiscountPercentageLevel3 = _icoDiscountPercentageLevel3;
+  }
 
   // true if presale is still active
   function isPresale() public constant returns (bool) {
@@ -197,6 +245,23 @@ contract Crowdsale is Ownable {
   function cummulativeTokensSold() public constant returns (uint256) {
     return tokensSoldPre + tokensSoldIco;
   }
+
+  // claim mistakenly sent tokens to this contract
+  function claimTokens(address _token) public onlyOwner {
+    require(_token != address(0));
+    ERC20 erc20Token = ERC20(_token);
+    uint balance = erc20Token.balanceOf(this);
+    erc20Token.transfer(owner, balance);
+    ClaimedTokens(_token, owner, balance);
+  }
+
+  // events
+  event TokenPurchase(address indexed _purchaser, address indexed _beneficiary, uint256 _value, uint256 _amount);
+  event PresaleTimeRangeChanged(address indexed _owner, uint256 _startTimePre, uint256 _endTimePre);
+  event IcoTimeRangeChanged(address indexed _owner, uint256 _startTimeIco, uint256 _endTimeIco);
+  event DiscountLevelsChanged(address indexed _owner, uint256 _icoDiscountLevel1, uint256 _icoDiscountLevel2);
+  event DiscountPercentagesChanged(address indexed _owner, uint8 _icoDiscountPercentageLevel1, uint8 _icoDiscountPercentageLevel2, uint8 _icoDiscountPercentageLevel3);
+  event ClaimedTokens(address indexed _token, address indexed _owner, uint _amount);
 
 }
 

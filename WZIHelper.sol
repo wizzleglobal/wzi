@@ -45,7 +45,7 @@ contract ERC20 {
 
 /// @title WizzleGlobalHelper contract
 contract WizzleGlobalHelper is Mortal {
-    mapping (address => bool) whitelisted;
+    mapping (address => bool) public whitelisted;
     ERC20 public token;
 
     function WizzleGlobalHelper(address _token) public {
@@ -93,7 +93,7 @@ contract WizzleGlobalHelper is Mortal {
            whitelisted[dests[i]] = true;
            i += 1;
         }
-        return(i); 
+        return (i); 
     }
 
 }
