@@ -34,7 +34,7 @@ contract Roles {
   //events
   event OwnerChanged(address indexed _previousOwner, address indexed _newOwner);
   event GlobalOperatorChanged(address indexed _previousGlobalOperator, address indexed _newGlobalOperator);
-  event CrowdsaleTransferred(address indexed _previousCrowdsale, address indexed _newCrowdsale);
+  event CrowdsaleChanged(address indexed _previousCrowdsale, address indexed _newCrowdsale);
   
   function Roles() public {
     owner = msg.sender;
@@ -71,7 +71,7 @@ contract Roles {
 
   function changeCrowdsale(address newCrowdsale) onlyOwner public {
     require(newCrowdsale != address(0));
-    GlobalOperatorChanged(crowdsale, newCrowdsale);
+    CrowdsaleChanged(crowdsale, newCrowdsale);
     crowdsale = newCrowdsale;
   }
 
