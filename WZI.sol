@@ -319,7 +319,7 @@ contract ExtendedToken is ERC20, Roles {
     return (a > b) ? a : b;
   }
 
-  /// @dev Don't accept ETH
+  /// @dev Don't accept ether
   function () public payable {
     revert();
   }

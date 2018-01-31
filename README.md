@@ -120,6 +120,16 @@ During the presale minimum contribution is 1 ETH.
         function buyTokens(address beneficiary) public payable {
         }
 
+        /// @dev Used to change presale cap (maximum tokens sold during presale)
+        /// @param _preCap Presale cap
+        function changePresaleCap(uint256 _preCap) public onlyOwner {
+        }
+
+        /// @dev Used to change presale discount percentage
+        /// @param _preDiscountPercentage Presale discount percentage
+        function changePresaleDiscountPercentage(uint8 _preDiscountPercentage) public onlyOwner {
+        }
+
         /// @dev Used to change presale time
         /// @param _startTimePre Start time of presale
         /// @param _endTimePre End time of presale
@@ -135,14 +145,14 @@ During the presale minimum contribution is 1 ETH.
         /// @dev Change amount of tokens in discount phases
         /// @param _icoDiscountLevel1 Amount of tokens in first phase
         /// @param _icoDiscountLevel2 Amount of tokens in second phase
-        function changeDiscountLevels(uint256 _icoDiscountLevel1, uint256 _icoDiscountLevel2) public onlyOwner {
+        function changeIcoDiscountLevels(uint256 _icoDiscountLevel1, uint256 _icoDiscountLevel2) public onlyOwner {
         }
 
         /// @dev Change discount percentages for different phases
         /// @param _icoDiscountPercentageLevel1 Discount percentage of phase 1
         /// @param _icoDiscountPercentageLevel2 Discount percentage of phase 2
         /// @param _icoDiscountPercentageLevel3 Discount percentage of phase 3
-        function changeDiscountPercentages(uint8 _icoDiscountPercentageLevel1, uint8 _icoDiscountPercentageLevel2, uint8 _icoDiscountPercentageLevel3) public onlyOwner {
+        function changeIcoDiscountPercentages(uint8 _icoDiscountPercentageLevel1, uint8 _icoDiscountPercentageLevel2, uint8 _icoDiscountPercentageLevel3) public onlyOwner {
         }
 
         /// @dev Check if presale is active
