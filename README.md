@@ -11,6 +11,7 @@ Whitepaper: [bit.ly/wziwhitepaper](https://bit.ly/wziwhitepaper)
 **Order of deployment:**
 
 1. Token
+
     First deploy the token. You can set up a truffle deployment, use remix or mew.
 
 2. Helper
