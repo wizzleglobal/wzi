@@ -112,7 +112,6 @@ During the presale minimum contribution is 1 ETH.
 
         /// @dev Fallback function for crowdsale contribution
         function () payable {
-            buyTokens(msg.sender);
         }
 
         /// @dev Buy tokens function
