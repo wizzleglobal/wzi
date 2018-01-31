@@ -175,8 +175,8 @@ contract ExtendedToken is ERC20, Roles {
   /// @param _amount Amount of tokens to be burned
   /// @return True if successfully burned
   function burn(uint _amount) public onlyGlobalOperator returns (bool) {
-	    uint256 newBalance = balances[msg.sender].sub(_amount);
-	    require(newBalance >= 0);
+	    require(balances[msg.sender] >= _amount);
+	    uint256 newBalance = balances[msg.sender].sub(_amount);      
       balances[msg.sender] = newBalance;
       totalSupply = totalSupply.sub(_amount);
       Burn(msg.sender, _amount);
@@ -195,7 +195,6 @@ contract ExtendedToken is ERC20, Roles {
   /// @param _amount Amount of tokens to be locked
   /// @return True if successfully locked
   function lock(uint _amount) public returns (bool) {
-      require(msg.sender != address(0));
       require(_amount >= MINIMUM_LOCK_AMOUNT);
       uint newLockedAmount = locked[msg.sender].lockedAmount.add(_amount);
       require(balances[msg.sender] >= newLockedAmount);

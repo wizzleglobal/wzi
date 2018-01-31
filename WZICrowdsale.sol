@@ -71,8 +71,8 @@ contract ExtendedERC20 is ERC20 {
   function mint(address _to, uint _amount) public returns (bool);
 }
 
-/// @title WizzleGlobalHelper contract
-contract WizzleGlobalHelper {
+/// @title WizzleInfinityHelper contract
+contract WizzleInfinityHelper {
   function isWhitelisted(address addr) public constant returns (bool);
 }
 
@@ -82,15 +82,15 @@ contract Crowdsale is Ownable {
   
   /// Token reference
   ExtendedERC20 public token;
-  /// WizzleGlobalHelper reference - helper for whitelisting
-  WizzleGlobalHelper public helper;
+  /// WizzleInfinityHelper reference - helper for whitelisting
+  WizzleInfinityHelper public helper;
   /// Presale start time (inclusive)
   uint256 public startTimePre;
   /// Presale end time (inclusive)
   uint256 public endTimePre;
   /// ICO start time (inclusive)
   uint256 public startTimeIco;
-  /// ICO end time
+  /// ICO end time (inclusive)
   uint256 public endTimeIco;
   /// Address where the fund will be collected
   address public wallet;
@@ -131,7 +131,7 @@ contract Crowdsale is Ownable {
     rate = _rate;
     wallet = _wallet;
     token = ExtendedERC20(_tokenAddress);
-    helper = WizzleGlobalHelper(_helperAddress);
+    helper = WizzleInfinityHelper(_helperAddress);
     icoDiscountLevel1 = 500 * 10**24; // 500m tokens 
     icoDiscountLevel2 = 500 * 10**24; // 500m tokens
     icoDiscountPercentageLevel1 = 40; // 40% discount
@@ -160,7 +160,7 @@ contract Crowdsale is Ownable {
     require(weiAmount > 0);
     uint256 tokenAmount = 0;
     if (isPresale()) {
-      /// Minimum contribution of 1 ether during crowdsale
+      /// Minimum contribution of 1 ether during PRESALE
       require(weiAmount >= 1 ether); 
       tokenAmount = getTokenAmount(weiAmount, 50);
       uint256 newTokensSoldPre = tokensSoldPre.add(tokenAmount);
@@ -170,7 +170,7 @@ contract Crowdsale is Ownable {
       uint8 discountPercentage = getIcoDiscountPercentage();
       tokenAmount = getTokenAmount(weiAmount, discountPercentage);
       /// Minimum contribution 1 token during ICO
-      require(tokenAmount >= 1); 
+      require(tokenAmount >= 10**18); 
       tokensSoldIco = tokensSoldIco.add(tokenAmount);
     } else {
       /// Stop execution and return remaining gas
@@ -280,7 +280,11 @@ contract Crowdsale is Ownable {
   /// @dev Function to extract mistakenly sent ERC20 tokens sent to Crowdsale contract
   /// @param _token Address of token we want to extract
   function claimTokens(address _token) public onlyOwner {
-    require(_token != address(0));
+    if (_token == address(0)) { 
+         owner.transfer(this.balance);
+         return;
+    }
+
     ERC20 erc20Token = ERC20(_token);
     uint balance = erc20Token.balanceOf(this);
     erc20Token.transfer(owner, balance);

@@ -43,13 +43,13 @@ contract ERC20 {
   event Approval(address indexed owner, address indexed spender, uint value);
 }
 
-/// @title WizzleGlobalHelper contract
-contract WizzleGlobalHelper is Mortal {
+/// @title WizzleInfinityHelper contract
+contract WizzleInfinityHelper is Mortal {
     
     mapping (address => bool) public whitelisted;
     ERC20 public token;
 
-    function WizzleGlobalHelper(address _token) public {
+    function WizzleInfinityHelper(address _token) public {
         token = ERC20(_token);
     }
 
@@ -71,8 +71,7 @@ contract WizzleGlobalHelper is Mortal {
     /// @param arr Array of addresses to be whitelisted
     function bulkWhitelist(address[] arr) public onlyOwner {
         for (uint i = 0; i < arr.length; i++) {
-            address addr = arr[i];
-            whitelisted[addr] = true;
+            whitelisted[arr[i]] = true;
         }
     }
 
