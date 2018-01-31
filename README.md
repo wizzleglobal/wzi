@@ -17,9 +17,9 @@ Whitepaper: [bit.ly/wziwhitepaper](https://bit.ly/wziwhitepaper)
 2. Helper
 
     After the token, we have to deploy the helper contract.
-    This contract serves for two purposes: 
-        * Whitelisting of address for presale and crowdsale
-        * Airdoping the tokens for users who have registered in presale
+    This contract serves for two purposes: <br />
+        * Whitelisting of address for presale and crowdsale<br />
+        * Airdoping the tokens for users who have registered in presale<br />
     
 3. Crowdsale
 
