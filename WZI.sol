@@ -209,13 +209,13 @@ contract ExtendedToken is ERC20, Roles {
   /// @dev Used by lock, claimBonus and unlock functions
   function _checkLock(address _from) internal returns (bool) {
     if (locked[_from].lockedAmount >= MINIMUM_LOCK_AMOUNT) {
-      return _checkLockAmount(_from, locked[_from].lockedAmount);
+      return _mintBonus(_from, locked[_from].lockedAmount);
     }
     return false;
   }
 
   /// @dev Used by lock and unlock functions
-  function _checkLockAmount(address _from, uint256 _amount) internal returns (bool) {
+  function _mintBonus(address _from, uint256 _amount) internal returns (bool) {
       uint referentTime = max(locked[_from].lastUpdated, locked[_from].lastClaimed);
       uint timeDifference = now.sub(referentTime);
       uint amountTemp = (_amount.mul(timeDifference)).div(30 days); 
@@ -248,7 +248,7 @@ contract ExtendedToken is ERC20, Roles {
       } else {
         locked[msg.sender].lockedAmount = newLockedAmount;
         Unlock(msg.sender, _amount);
-        _checkLockAmount(msg.sender, _amount);
+        _mintBonus(msg.sender, _amount);
       }
       return true;
   }
