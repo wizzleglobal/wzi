@@ -106,6 +106,8 @@ contract Crowdsale is Ownable {
   uint256 public contributors;
   /// Presale cap
   uint256 public preCap;
+  /// ICO cap
+  uint256 public icoCap;
   /// Presale discount percentage
   uint8 public preDiscountPercentage;
   /// Amount of tokens in ICO discount level 1 
@@ -138,6 +140,7 @@ contract Crowdsale is Ownable {
     helper = WizzleInfinityHelper(_helperAddress);
     preCap = 1500 * 10**24;           // 1500m tokens
     preDiscountPercentage = 50;       // 50% discount
+    icoCap = 3000 * 10**24;           // 3000m tokens (500m + 500m + 2000m)
     icoDiscountLevel1 = 500 * 10**24; // 500m tokens 
     icoDiscountLevel2 = 500 * 10**24; // 500m tokens
     icoDiscountPercentageLevel1 = 40; // 40% discount
@@ -177,7 +180,9 @@ contract Crowdsale is Ownable {
       tokenAmount = getTokenAmount(weiAmount, discountPercentage);
       /// Minimum contribution 1 token during ICO
       require(tokenAmount >= 10**18); 
-      tokensSoldIco = tokensSoldIco.add(tokenAmount);
+      uint256 newTokensSoldIco = tokensSoldIco.add(tokenAmount);
+      require(newTokensSoldIco <= icoCap);
+      tokensSoldIco = newTokensSoldIco;
     } else {
       /// Stop execution and return remaining gas
       require(false);
@@ -238,6 +243,14 @@ contract Crowdsale is Ownable {
     PresaleTimeRangeChanged(owner, _startTimePre, _endTimePre);
     startTimePre = _startTimePre;
     endTimePre = _endTimePre;
+  }
+
+  /// @dev Used to change ICO cap in case the hard cap has been reached
+  /// @param _icoCap ICO cap
+  function changeIcoCap(uint256 _icoCap) public onlyOwner {
+    require(_icoCap > 0);
+    IcoCapChanged(owner, _icoCap);
+    icoCap = _icoCap;
   }
 
   /// @dev Used to change time of ICO
@@ -318,6 +331,7 @@ contract Crowdsale is Ownable {
   event PresaleTimeRangeChanged(address indexed _owner, uint256 _startTimePre, uint256 _endTimePre);
   event PresaleCapChanged(address indexed _owner, uint256 _preCap);
   event PresaleDiscountPercentageChanged(address indexed _owner, uint8 _preDiscountPercentage);
+  event IcoCapChanged(address indexed _owner, uint256 _icoCap);
   event IcoTimeRangeChanged(address indexed _owner, uint256 _startTimeIco, uint256 _endTimeIco);
   event IcoDiscountLevelsChanged(address indexed _owner, uint256 _icoDiscountLevel1, uint256 _icoDiscountLevel2);
   event IcoDiscountPercentagesChanged(address indexed _owner, uint8 _icoDiscountPercentageLevel1, uint8 _icoDiscountPercentageLevel2, uint8 _icoDiscountPercentageLevel3);
