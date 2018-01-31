@@ -164,7 +164,7 @@ contract Crowdsale is Ownable {
       require(weiAmount >= 1 ether); 
       tokenAmount = getTokenAmount(weiAmount, 50);
       uint256 newTokensSoldPre = tokensSoldPre.add(tokenAmount);
-      require(newTokensSoldPre <= 1500 * 10**6 * 10**18);
+      require(newTokensSoldPre <= 1500 * 10**24); // 1500m tokens
       tokensSoldPre = newTokensSoldPre;
     } else if (isIco()) {
       uint8 discountPercentage = getIcoDiscountPercentage();
