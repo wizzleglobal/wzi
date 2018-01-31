@@ -123,6 +123,7 @@ contract Crowdsale is Ownable {
     require(_rate > 0);
     require(_wallet != address(0));
     require(_tokenAddress != address(0));
+    require(_helperAddress != address(0));
     startTimePre = _startTimePre;
     endTimePre = _endTimePre;
     startTimeIco = _startTimeIco;
