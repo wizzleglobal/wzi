@@ -140,7 +140,7 @@ contract Crowdsale is Ownable {
     helper = WizzleInfinityHelper(_helperAddress);
     preCap = 1500 * 10**24;           // 1500m tokens
     preDiscountPercentage = 50;       // 50% discount
-    icoCap = 3450 * 10**24;           // 3000m tokens (500m + 500m + 2450m)
+    icoCap = 3450 * 10**24;           // 3450m tokens (500m + 500m + 2450m)
     icoDiscountLevel1 = 500 * 10**24; // 500m tokens 
     icoDiscountLevel2 = 500 * 10**24; // 500m tokens
     icoDiscountPercentageLevel1 = 40; // 40% discount
